@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>간단한 투두리스트</title>
+    <style>
+      :root {
+        --bg: #f7f9fb;
+        --text: #1f2937;
+        --accent: #10b981;
+        --muted: #6b7280;
+        --card: #ffffff;
+        --shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+        --radius: 14px;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(900px 600px at 20% 10%, #eff8ff, transparent),
+          radial-gradient(800px 560px at 80% 90%, #eefff6, transparent), var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+        padding: 24px;
+      }
+
+      .app {
+        width: 100%;
+        max-width: 560px;
+        background: var(--card);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 22px;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(20px, 3.5vw, 28px);
+      }
+
+      p.sub { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      input[type="text"] {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+        background: #fbfdff;
+        font-size: 15px;
+        outline: none;
+      }
+
+      input[type="text"]:focus {
+        border-color: #c7d2fe;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+      }
+
+      button {
+        appearance: none;
+        border: 0;
+        padding: 12px 16px;
+        border-radius: 10px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.06s ease, filter 0.2s ease;
+      }
+
+      button:hover { transform: translateY(-1px); }
+      button:active { transform: translateY(0); filter: brightness(0.98); }
+
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 8px;
+      }
+
+      li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: #f9fbfd;
+        border: 1px solid #eef2f7;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+
+      li:hover { background: #f3f7fb; }
+
+      .todo-text { flex: 1; }
+
+      /* 완료(checked) 상태는 취소선과 약간 흐린 색상으로 표시 */
+      .done .todo-text { text-decoration: line-through; color: #9ca3af; }
+
+      .hint { margin-top: 12px; color: var(--muted); font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <section class="app">
+      <h1>간단한 투두리스트 📝</h1>
+      <p class="sub">입력 → 추가 버튼 → 목록에 쌓임. 아이템 클릭 시 완료(취소선).</p>
+
+      <div class="row">
+        <!-- 입력창: 할 일을 여기에 적습니다. -->
+        <input id="todoInput" type="text" placeholder="할 일을 입력하세요..." />
+        <!-- 추가 버튼: 클릭 시 목록에 추가됩니다. -->
+        <button id="addBtn" type="button">추가</button>
+      </div>
+
+      <!-- 투두 목록이 표시될 영역입니다. 클릭으로 완료/해제합니다. -->
+      <ul id="todoList"></ul>
+
+      <div class="hint">포인트: 배열/리스트 관리, onclick 이벤트로 완료 토글</div>
+    </section>
+
+    <script>
+      // 상태(State)를 배열로 관리합니다. 각 아이템은 { id, text, done } 형태로 저장됩니다.
+      const todos = [];
+
+      // DOM 요소 참조
+      const inputEl = document.getElementById('todoInput');
+      const addBtn = document.getElementById('addBtn');
+      const listEl = document.getElementById('todoList');
+
+      // 유틸: 고유 id 생성을 위한 간단한 증가값
+      let nextId = 1;
+
+      // 렌더 함수: 현재 todos 배열을 기준으로 화면의 <ul> 내용을 다시 그립니다.
+      function renderList() {
+        // 기존 목록 비우기
+        listEl.innerHTML = '';
+
+        // 배열의 각 아이템을 <li>로 변환하여 추가
+        todos.forEach((item) => {
+          const li = document.createElement('li');
+          if (item.done) li.classList.add('done');
+
+          const span = document.createElement('span');
+          span.className = 'todo-text';
+          span.textContent = item.text;
+
+          // 클릭 시 완료 상태 토글 (onclick 이벤트 포인트)
+          li.onclick = () => toggleDone(item.id);
+
+          li.appendChild(span);
+          listEl.appendChild(li);
+        });
+      }
+
+      // 추가 함수: 입력값을 받아 배열에 push하고 렌더링합니다.
+      function addTodo() {
+        const text = inputEl.value.trim();
+        if (!text) return; // 빈 값은 무시
+
+        todos.push({ id: nextId++, text, done: false });
+        inputEl.value = '';
+        renderList();
+        inputEl.focus();
+      }
+
+      // 토글 함수: id로 찾아 done 값을 반전시킵니다.
+      function toggleDone(id) {
+        const idx = todos.findIndex((t) => t.id === id);
+        if (idx !== -1) {
+          todos[idx].done = !todos[idx].done;
+          renderList();
+        }
+      }
+
+      // 이벤트 연결: 버튼 클릭, Enter 키 입력
+      addBtn.addEventListener('click', addTodo);
+      inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') addTodo();
+      });
+
+      // 초기 렌더
+      renderList();
+    </script>
+  </body>
+  </html>
+
+
